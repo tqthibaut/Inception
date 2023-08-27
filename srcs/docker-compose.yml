@@ -1,0 +1,74 @@
+#version: "2.1"
+
+services:
+  mariadb:
+    #image: mariadb
+    container_name: mariadb             # Le nom du container
+    networks:
+      - inception                       # à quel network il appartient
+    build: ./requirements/mariadb/
+    env_file:
+      - .env
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    restart: unless-stopped
+
+  nginx:
+    container_name: nginx
+      # image: nginx
+    depends_on:
+      - wordpress
+    build: ./requirements/nginx/
+    volumes:
+      # attache le volume wordpress du container nginx a un volume wordpress data sur la machine
+      # 'physique'
+      - "wordpress_data:/var/www/html/wordpress"
+    networks:
+      # juste un nom
+      - inception
+    ports:
+      # je suppose que ici on ouvre peut overwrite le port ouvert, ici udp et tcp en 443
+      - "443:443"
+      # va tjs restart a moins que nous on le stop
+    restart: unless-stopped
+
+  wordpress:
+    container_name: wordpress
+      # image: wordpress
+    env_file:
+      - .env
+    volumes:
+      - "wordpress_data:/var/www/html/wordpress"
+    networks:
+      - inception
+    build: ./requirements/wordpress/
+    depends_on:      # WordPress démarrera uniquement après MariaDB (sinon il ne pourra pas configurer la base de données...)
+      - mariadb
+    restart: unless-stopped
+
+# Ici on definit le network
+networks:
+  inception:
+  #Ici  bridge  indique a Docker d’installer automatiquement des règles
+  # qui permettront aux 3 containers de communiquer en bridge.
+    driver: bridge
+
+# VOLUME:
+# Permet la persistance des donnees
+volumes:
+  wordpress_data:
+    driver: local
+    name: wordpress_data
+    driver_opts:
+      type: 'none'
+      o: 'bind'
+      device: '/home/tthibaut/data/wordpress' # chemin stockage wordpress
+
+  mariadb_data:
+    driver: local
+    name: mariadb_data
+    driver_opts:
+      type: 'none'
+      o: 'bind'
+      device: '/home/tthibaut/data/mariadb'
+
